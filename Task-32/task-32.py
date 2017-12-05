@@ -4,7 +4,6 @@ from time import sleep
 robotIP = "localhost"
 robotPort = 9559
 
-posture = ALProxy("ALRobotPosture", robotIP, robotPort)
 motion = ALProxy("ALMotion", robotIP, robotPort)
 leds = ALProxy("ALLeds", robotIP, robotPort)
 
