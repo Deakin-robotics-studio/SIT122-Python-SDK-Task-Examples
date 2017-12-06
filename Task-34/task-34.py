@@ -12,39 +12,35 @@ class FiniteStateMachine(ALModule):
     
     def __init__(self, name):
         global memory
+        self.blockInput = False
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
         memory = ALProxy("ALMemory")
-        memory.subscribeToEvent("TouchChanged",
+       
+        memory.subscribeToEvent("RightBumperPressed",
             "FiniteStateMachine",
-            "onTouched")
+            "onRightBumperPressed")
+
+        memory.subscribeToEvent("LeftBumperPressed",
+            "FiniteStateMachine",
+            "onLeftBumperPressed")
+
         self.leds = ALProxy("ALLeds")
 
         # States of the FSM
         self.earLedsOn = False
         self.eyeColor = EYE_COLOR_A
 
-    def onTouched(self, strVarName, value):
+        # Turn stuff off.
+        self.leds.fadeRGB("EarLeds", 0x000000, 0)
+        self.leds.fadeRGB("FaceLeds", 0x000000, 0)
 
-        # Unsubscribe while processing.
-        memory.unsubscribeToEvent("TouchChanged",
-            "FiniteStateMachine")
+    def onLeftBumperPressed(self):
+        if self.blockInput:
+            return
 
-        for p in value:
-            if not p[1] == True:
-                continue
-            if p[0] == "LFoot/Bumper/Left":
-                self.leftBumperPressed()
-            elif p[0] == "RFoot/Bumper/Right":
-                self.rightBumperPressed()
-
-        # Subscribe again to the event
-        memory.subscribeToEvent("TouchChanged",
-            "FiniteStateMachine",
-            "onTouched")
-
-    def leftBumperPressed(self):
+        self.blockInput = True
 
         if self.earLedsOn:
             print "Turning ear LEDs off"
@@ -52,11 +48,17 @@ class FiniteStateMachine(ALModule):
             self.earLedsOn = False
         else:
             print "Turning ear LEDs on"
-            self.leds.fadeRGB("EarLeds", 0x0000FF, 1)
+            self.leds.fadeRGB("EarLeds", 0x0000FF, 0)
             self.earLedsOn = True
 
+        sleep(0.5)
+        self.blockInput = False
 
-    def rightBumperPressed(self):
+    def onRightBumperPressed(self):
+        if self.blockInput:
+            return
+
+        self.blockInput = True
 
         if self.eyeColor == EYE_COLOR_A:
             print "Setting eye color to B"
@@ -65,7 +67,10 @@ class FiniteStateMachine(ALModule):
             print "Setting eye color to A"
             self.eyeColor = EYE_COLOR_A
         
-        self.leds.fadeRGB("FaceLeds", self.eyeColor, 1)
+        self.leds.fadeRGB("FaceLeds", self.eyeColor, 0)
+        
+        sleep(0.5)
+        self.blockInput = False
 
 
 def main(ip, port):
@@ -73,16 +78,17 @@ def main(ip, port):
 
     # Setup the data broker.
     myBroker = ALBroker("myBroker",
-       "0.0.0.0",   # listen to anyone
-       0,           # find a free port and use it
-       ip,          # parent broker IP
-       port)        # parent broker port
+       "0.0.0.0",   # Bind to socket root
+       0,           # Auto-select port
+       ip,          # Parent broker IP
+       port)        # Parent broker port
 
     FiniteStateMachine = FiniteStateMachine("FiniteStateMachine")
 
     try:
         while True:
-            sleep(0.5)
+            # 100 miliseconds is an acceptable amount of input delay time.
+            sleep(0.1)
     except KeyboardInterrupt:
         myBroker.shutdown()
 

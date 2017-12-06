@@ -6,35 +6,38 @@ robotPort = 9559
 
 motion = ALProxy("ALMotion", robotIP, robotPort)
 leds = ALProxy("ALLeds", robotIP, robotPort)
+tts = ALProxy("ALTextToSpeech", robotIP, robotPort)
 
 MIN_SHOULDER_PITCH = -2.086
 MAX_SHOULDER_PITCH = -1.178
 leftArmJoints = ['LShoulderPitch', 'LShoulderRoll', 'LElbowYaw', 'LElbowRoll']
 
+CurrentlyOn = False
+
 # Loosen the left arm
 motion.setStiffnesses(leftArmJoints, 0.0)
 
-def main():
-    while True:
-        # Read the current shoulder pitch position
-        leftArmAngles = motion.getAngles('LShoulderPitch', True)
+# Disable face LED's
+leds.fadeRGB("FaceLeds", 0x000000, 0)
 
-        # If the value indicates the arm is pointing upright
-        if (leftArmAngles[0] > MIN_SHOULDER_PITCH) \
-            and (leftArmAngles[0] < MAX_SHOULDER_PITCH):
-            break
+tts.say("I am ready. Gently move my left arm.")
 
-        # Prevent reading too often.
-        sleep(0.25)
-    
-    # Turn on the face LED's as green for five seconds.
-    print "Setting LEDs on"
-    leds.fadeRGB("FaceLeds", 0x00FF00, 1)
-    sleep(5)
-    print "Setting LEDS off"
-    leds.fadeRGB("FaceLeds", 0x000000, 0)
+while True:
+    # Read the current shoulder pitch position
+    leftArmAngles = motion.getAngles('LShoulderPitch', True)
 
-    # Repeat the main loop
-    main()
+    # If the value indicates the arm is pointing upright
+    if (leftArmAngles[0] > MIN_SHOULDER_PITCH) \
+        and (leftArmAngles[0] < MAX_SHOULDER_PITCH):
+        if not CurrentlyOn:
+            print "Setting LEDs on"
+            leds.fadeRGB("FaceLeds", 0x00FF00, 0)
+            CurrentlyOn = True
+    else:
+        if CurrentlyOn:
+            print "Setting LEDS off"
+            leds.fadeRGB("FaceLeds", 0x000000, 0)
+            CurrentlyOn = False
 
-main()
+    # Prevent reading too often.
+    sleep(0.25)

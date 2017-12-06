@@ -8,9 +8,9 @@ motion = ALProxy("ALMotion", "localhost", 9559)
 # Stables walking parameters for walking a curved path
 stable = [
     ['MaxStepX', 0.06],
-    ['MaxStepY', 0.11],
-    ['MaxStepTheta', 0.15],
-    ['MaxStepFrequency', 0.2]
+    ['MaxStepY', 0.06],
+    ['MaxStepTheta', 0.06],
+    ['MaxStepFrequency', 0.15]
 ]
 
 # Ensure the robot is standing up.
