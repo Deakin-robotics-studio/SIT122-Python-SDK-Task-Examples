@@ -1,7 +1,7 @@
 from naoqi import ALProxy, ALBroker, ALModule
 from time import sleep
 
-robotIP = "10.150.176.91"
+robotIP = "localhost"
 robotPort = 9559
 memory = None
 
