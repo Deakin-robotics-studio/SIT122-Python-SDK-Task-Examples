@@ -3,16 +3,18 @@ from time import sleep
 from random import randint
 
 robotIP = "localhost"
-robotPort = 50531
+robotPort = 9559
 
 class FaceDetector(ALModule):
     
     def __init__(self, name):
         self.quit = False
+        self.detectLock = False
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
         self.memory = ALProxy("ALMemory")
+        self.tts = ALProxy("ALTextToSpeech")
 
         # Register facial recognition module
         self.fr = ALProxy("ALFaceDetection")
@@ -23,18 +25,24 @@ class FaceDetector(ALModule):
             "FaceDetector",
             "onFaceDetected")
 
-        self.beginRecognition()
+        self.startRecognition()
 
     def onFaceDetected(self, value):
-       self.stopRecognition()
-       self.tts.say("I see a person!")
-       sleep(1)
-       self.startRecognition()
+        if self.detectLock:
+            return
+        
+        # Pause recognition.
+        self.stopRecognition()
+        self.tts.say("Hello, I see you!")
+        sleep(1)
+        self.startRecognition()
 
-    def beginRecognition(self):
+    def startRecognition(self):
+        self.detectLock = False
         self.fr.setRecognitionEnabled(True)
 
     def stopRecognition(self):
+        self.detectLock = True
         self.fr.setRecognitionEnabled(False)
 
     def onEnd(self):
