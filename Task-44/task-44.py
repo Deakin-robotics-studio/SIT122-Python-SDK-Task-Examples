@@ -1,6 +1,5 @@
 from naoqi import ALProxy, ALBroker, ALModule
 from time import sleep
-from random import randint
 
 robotIP = "localhost"
 robotPort = 9559
