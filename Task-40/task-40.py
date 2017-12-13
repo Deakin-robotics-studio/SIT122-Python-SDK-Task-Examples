@@ -3,12 +3,12 @@ from time import sleep
 from random import randint
 
 robotIP = "localhost"
-robotPort = 50531
+robotPort = 9559
 memory = None
 CONFIDENCE_THRESHOLD = 0.5
 
 class SpeechRecognition(ALModule):
-    
+
     def __init__(self, name):
         self.quit = False
         global memory
@@ -27,10 +27,9 @@ class SpeechRecognition(ALModule):
         self.asr = ALProxy("ALSpeechRecognition")
         self.asr.setLanguage("English")
         self.asr.setVisualExpression(True)
-        self.stopListening()
 
         # Create an array of strings containing the numbers from 0 - 100.
-        vocab = []
+        vocab = ['end game']
         for i in range(0, 100):
             vocab.append(str(i))
 
@@ -40,30 +39,29 @@ class SpeechRecognition(ALModule):
         # Subscribe to the speech recognition events.
         self.asr.subscribe("SpeechRecognition")
 
+        # Subscribe the "onWordRecognized" function to "WordRecognized".
+        memory.subscribeToEvent("WordRecognized",
+            "SpeechRecognition",
+            "onWordRecognized")
+        
         # Setup the game.
         self.number = -1
         self.attempts = 0
         self.beginGame()
 
-        # Start speech recognition engine.
-        self.startListening()
-
-        # Subscribe the "onWordRecognized" function to "WordRecognized".
-        memory.subscribeToEvent("WordRecognized",
-            "SpeechRecognition",
-            "onWordRecognized")
- 
 
     def beginGame(self):
+        self.stopListening()
         self.number = randint(0,100)
         self.attempts = 0
         self.tts.say("I have chosen a number between zero and one-hundred.")
         self.tts.say("Can you guess what it is?")
+        self.startListening()
 
     def endGame(self):
         self.tts.say("Congratulations. You guessed my number in %s tries." % str(self.attempts))
         self.beginGame()
-        
+
     def startListening(self):
         self.asr.pause(False)
 
@@ -77,7 +75,12 @@ class SpeechRecognition(ALModule):
             self.tts.say("I did not understand.")
             self.startListening()
             return
-        
+
+        if command == "end game":
+            self.tts.say("Goodbye.")
+            self.quit = True
+            return
+
         try:
             num = int(command)
         except:
@@ -103,9 +106,9 @@ class SpeechRecognition(ALModule):
         self.startListening()
 
 
-        
+
     def stopListening(self):
-        self.asr.pause(True)        
+        self.asr.pause(True)
 
     def onEnd(self):
         self.doSit()
@@ -133,6 +136,6 @@ def main(ip, port):
     except KeyboardInterrupt:
         SpeechRecognition.onEnd()
         myBroker.shutdown()
-        
+
 
 main(robotIP, robotPort)
