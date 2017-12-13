@@ -5,7 +5,7 @@ import threading
 posture = ALProxy("ALRobotPosture", "localhost", 9559)
 motion = ALProxy("ALMotion", "localhost", 9559)
 
-# Create a function that will make the robot wave.
+# Create a function that will make the robot move its head
 def makeRobotWave(motion):
     print "makeRobotWave thread starting. Sleeping for 2.0 seconds."
     sleep(2.0)

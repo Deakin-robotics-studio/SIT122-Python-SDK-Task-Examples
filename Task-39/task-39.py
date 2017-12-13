@@ -8,6 +8,13 @@ MIN_SONAR_THRESHHOLD = 0.5
 MAX_TRIGGER_COUNT = 3
 MAX_RUNTIME_SECONDS = 120
 
+stable = [
+    ['MaxStepX', 0.09],
+    ['MaxStepY', 0.09],
+    ['MaxStepTheta', 0.09],
+    ['MaxStepFrequency', 0.15]
+]
+
 class SenseReasonReact():
     def __init__(self, robotIP, robotPort):
 
@@ -78,19 +85,19 @@ class SenseReasonReact():
             self.objectDetected = False
 
             # Turn 180 degrees.
-            self.motion.moveTo(0, 0, math.pi)
+            self.motion.moveTo(0, 0, (math.pi) / 2, stable)
             
             # Start walking again.
-            self.motion.post.moveTo(1, 0, 0)
+            self.motion.post.moveTo(1, 0, 0, stable)
         
         else:
             if not self.motion.moveIsActive():
                 # Face random direction
-                self.motion.moveTo(0, 0, random.uniform(0.0, (2 * math.pi) + 1))
+                self.motion.moveTo(0, 0, random.uniform(0.0, (2 * math.pi) + 1), stable)
                 time.sleep(1)
 
                 # Walk forwards again.
-                self.motion.post.moveTo(1, 0, 0)
+                self.motion.post.moveTo(1, 0, 0, stable)
 
 
     def mainLoop(self):
