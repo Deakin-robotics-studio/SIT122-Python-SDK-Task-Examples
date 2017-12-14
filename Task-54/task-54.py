@@ -7,7 +7,7 @@ robotPort = 9559
 memory = None
 CONFIDENCE_THRESHOLD = 0.5
 
-class SpeechRecognition(ALModule):
+class InteractiveCalculator(ALModule):
 
     def __init__(self, name):
         global memory
@@ -18,11 +18,11 @@ class SpeechRecognition(ALModule):
         self.func = ""
         self.nums = [0, 0]
         self.numCount = 0
-        
+
         # Prepopulate an array that can provided as vocabulary when reading asking for numbers.
         self.numberVocab = []
         for i in range(0,100):
-            self.numberVocab.append(str(i))    
+            self.numberVocab.append(str(i))
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
@@ -35,16 +35,16 @@ class SpeechRecognition(ALModule):
         self.am.setExpressiveListeningEnabled(False)
 
         # Register speech recognition
-        self.asr = ALProxy("ALSpeechRecognition")
+        self.asr = ALProxy("ALInteractiveCalculator")
         self.asr.setLanguage("English")
         self.asr.setVisualExpression(True)
 
         # Subscribe to the speech recognition events.
-        self.asr.subscribe("SpeechRecognition")
+        self.asr.subscribe("InteractiveCalculator")
 
         # Subscribe the "onWordRecognized" function to "WordRecognized".
         memory.subscribeToEvent("WordRecognized",
-            "SpeechRecognition",
+            "InteractiveCalculator",
             "onWordRecognized")
 
         self.mainLoop()
@@ -63,7 +63,7 @@ class SpeechRecognition(ALModule):
 
     def startListening(self):
         self.asr.pause(False)
-    
+
     def stopListening(self):
         self.asr.pause(True)
 
@@ -76,7 +76,7 @@ class SpeechRecognition(ALModule):
         if confidence < CONFIDENCE_THRESHOLD:
             self.tts.say("I did not understand.")
         else:
-            # Determine what to do based on the current program mode. 
+            # Determine what to do based on the current program mode.
             if self.mode == "menu":
                 self.handleMenuResponse(command)
             elif self.mode == "input":
@@ -84,16 +84,16 @@ class SpeechRecognition(ALModule):
 
         # Re-call the main loop.
         self.mainLoop()
-    
+
     def mainLoop(self):
-        
+
         # Stop the voice recognition.
         self.stopListening()
 
         # If a quit has been requested, do not continue.
         if self.quit == True:
             return
-        
+
         # If the program is in menu mode, ask the user what to do.
         elif self.mode == "menu":
             self.giveInstructions()
@@ -120,7 +120,7 @@ class SpeechRecognition(ALModule):
             self.resetCalculator()
             self.mainLoop()
             return
-        
+
         # Re-start the voice recognition module.
         self.startListening()
 
@@ -143,7 +143,7 @@ class SpeechRecognition(ALModule):
 
     def handleInput(self, command):
         num = int(command)
-        
+
         # Set the number n equal to the input received.
         self.nums[self.numCount] = num
         self.numCount += 1
@@ -151,7 +151,7 @@ class SpeechRecognition(ALModule):
         # If we have collected two numbers from the user, it's time to calculate.
         if self.numCount >= 2:
             self.mode = "calculate"
-    
+
     def handleAddition(self):
         self.tts.say("%s plus %s equals %s" % (str(self.nums[0]), str(self.nums[1]), str(self.nums[0] + self.nums[1]) ) )
 
@@ -167,7 +167,7 @@ class SpeechRecognition(ALModule):
             self.tts.say("Sorry. My creator wasn't brave enough to program limits into my division function.")
             self.tts.say("Therefore, I cannot devide by zero. Please try dividing by a non-zero number.")
             return
-        
+
         # Allow decimals for division by re-casting a floating point number.
         num1 = self.nums[0]
         num2 = self.nums[1]
@@ -177,7 +177,7 @@ class SpeechRecognition(ALModule):
         self.tts.say("%s divide by %s equals %s" % (str(num1), str(num2), str(self.nums[0] / self.nums[1]) ) )
 
 def main(ip, port):
-    global SpeechRecognition
+    global InteractiveCalculator
 
     # Setup the data broker.
     myBroker = ALBroker("myBroker",
@@ -186,17 +186,17 @@ def main(ip, port):
        ip,          # Parent broker IP
        port)        # Parent broker port
 
-    SpeechRecognition = SpeechRecognition("SpeechRecognition")
+    InteractiveCalculator = InteractiveCalculator("InteractiveCalculator")
 
     try:
         while True:
             # 100 miliseconds is an acceptable amount of input delay time.
-            if SpeechRecognition.quit == True:
-                SpeechRecognition.onEnd()
+            if InteractiveCalculator.quit == True:
+                InteractiveCalculator.onEnd()
                 break
             sleep(0.1)
     except KeyboardInterrupt:
-        SpeechRecognition.onEnd()
+        InteractiveCalculator.onEnd()
         myBroker.shutdown()
 
 

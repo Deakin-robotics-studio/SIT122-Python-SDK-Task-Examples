@@ -1,122 +1,89 @@
 from naoqi import ALProxy, ALBroker, ALModule
 from time import sleep
-from random import randint
 
 robotIP = "localhost"
 robotPort = 9559
-memory = None
-CONFIDENCE_THRESHOLD = 0.5
 
-class SpeechRecognition(ALModule):
+NAO_MARK_QUIT = 119
+NAO_MARK_JOKE = 130
+REQUIRED_CAMERA = "CameraTop"
 
+class NaoMarkDetector(ALModule):
+    
     def __init__(self, name):
         self.quit = False
-        global memory
+        self.detectLock = False
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
-        memory = ALProxy("ALMemory")
-        self.posture = ALProxy("ALRobotPosture")
         self.tts = ALProxy("ALTextToSpeech")
 
-        # Disable autonomous movement.
-        self.am = ALProxy("ALAutonomousMoves")
-        self.am.setExpressiveListeningEnabled(False)
+        # Register landmark detection module
+        self.memory = ALProxy("ALMemory") 
+        self.ld = ALProxy("ALLandMarkDetection")
+        self.ld.subscribe("NaoMarkDetector")
 
-        # Register speech recognition
-        self.asr = ALProxy("ALSpeechRecognition")
-        self.asr.setLanguage("English")
-        self.asr.setVisualExpression(True)
+        # Subscribe the "onFaceDetected" function to "FaceDetected".
+        self.memory.subscribeToEvent("LandmarkDetected",
+            "NaoMarkDetector",
+            "onMarkDetected")
 
-        # Create an array of strings containing the numbers from 0 - 100.
-        vocab = ['end game']
-        for i in range(0, 100):
-            vocab.append(str(i))
+        # Start detections.
+        self.startDetection()
 
-        # Set the robot's vocabulary to the array of strings containing the numbers.
-        self.asr.setVocabulary(vocab, False)
+    def startDetection(self):
+        self.detectLock = False
+    
+    def endDetection(self):
+        self.detectLock = True
 
-        # Subscribe to the speech recognition events.
-        self.asr.subscribe("SpeechRecognition")
+    # Sensing
+    def onMarkDetected(self, eventName, eventData):
 
-        # Subscribe the "onWordRecognized" function to "WordRecognized".
-        memory.subscribeToEvent("WordRecognized",
-            "SpeechRecognition",
-            "onWordRecognized")
+        if self.detectLock:
+            return
         
-        # Setup the game.
-        self.number = -1
-        self.attempts = 0
-        self.beginGame()
+        # Pause detection to prevent multiple events being fired.
+        self.endDetection()
 
-
-    def beginGame(self):
-        self.stopListening()
-        self.number = randint(0,100)
-        self.attempts = 0
-        self.tts.say("I have chosen a number between zero and one-hundred.")
-        self.tts.say("Can you guess what it is?")
-        self.startListening()
-
-    def endGame(self):
-        self.tts.say("Congratulations. You guessed my number in %s tries." % str(self.attempts))
-        self.beginGame()
-
-    def startListening(self):
-        self.asr.pause(False)
-
-    def onWordRecognized(self, ref, spot):
-        command = spot[0]
-        confidence = spot[1]
-
-        self.stopListening()
-
-        if confidence < CONFIDENCE_THRESHOLD:
-            self.tts.say("I did not understand.")
-            self.startListening()
+        # Ensure the data supplied to this event callback is correct.
+        if len(eventData) < 4:
             return
 
-        if command == "end game":
-            self.tts.say("Goodbye.")
+        # See http://doc.aldebaran.com/1-14/naoqi/vision/allandmarkdetection-api.html#LandmarkDetected
+        # for LandMarkDetected value structure (including position in real world data)/
+        naoMarkNumber = eventData[1][0][1][0]
+        foundOnCamera = eventData[4]
+
+        self.reason(naoMarkNumber, foundOnCamera)
+        
+        # Restart the detection.
+        sleep(1.0)
+        self.startDetection()
+
+    # Reasoning.
+    def reason(self, naoMarkNumber, camera):
+        if not camera == REQUIRED_CAMERA:
+            # Acting.
+            self.tts.say("I see a NAOMark, but not with my top camera.")
+            return
+
+        if naoMarkNumber == NAO_MARK_QUIT:
+            # Acting.
             self.quit = True
-            return
-
-        try:
-            num = int(command)
-        except:
-            self.tts.say("I did not understand.")
-            self.startListening()
-            return
-
-        self.attempts = self.attempts + 1
-
-        diff = abs(num - self.number)
-
-        if diff == 0:
-            self.endGame()
-        elif diff > 0 and diff < 5:
-            self.tts.say("You a very close.")
-        elif diff > 5 and diff < 15:
-            self.tts.say("You are getting warm.")
-        elif diff > 15 and diff < 35:
-            self.tts.say("You are kind of close.")
+        elif naoMarkNumber == NAO_MARK_JOKE:
+            # Acting.
+            self.tts.say("Sometimes, I dream of flying away in a spaceship.")
         else:
-            self.tts.say("You are way off!")
-
-        self.startListening()
-
-
-
-    def stopListening(self):
-        self.asr.pause(True)
+            # Acting.
+            self.tts.say("I see a NAOMark. It's number is %s" % str(naoMarkNumber))
 
     def onEnd(self):
-        self.doSit()
-        self.stopListening()
-        self.quit = True
+        self.tts.say("Goodbye.")
+
 
 def main(ip, port):
-    global SpeechRecognition
+    global NaoMarkDetector
 
     # Setup the data broker.
     myBroker = ALBroker("myBroker",
@@ -125,17 +92,18 @@ def main(ip, port):
        ip,          # Parent broker IP
        port)        # Parent broker port
 
-    SpeechRecognition = SpeechRecognition("SpeechRecognition")
+    NaoMarkDetector = NaoMarkDetector("NaoMarkDetector")
 
     try:
         while True:
             # 100 miliseconds is an acceptable amount of input delay time.
-            if SpeechRecognition.quit == True:
+            if NaoMarkDetector.quit == True:
+                NaoMarkDetector.onEnd()
                 break
             sleep(0.1)
     except KeyboardInterrupt:
-        SpeechRecognition.onEnd()
+        NaoMarkDetector.onEnd()
         myBroker.shutdown()
-
+        
 
 main(robotIP, robotPort)

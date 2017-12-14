@@ -3,87 +3,64 @@ from time import sleep
 
 robotIP = "localhost"
 robotPort = 9559
+memory = None
 
-NAO_MARK_QUIT = 119
-NAO_MARK_JOKE = 130
-REQUIRED_CAMERA = "CameraTop"
+EVENTS = ["HandRightBackTouched", "HandLeftBackTouched", "RightBumperPressed", "LeftBumperPressed", "FrontTactilTouched"]
 
-class NaoMarkDetector(ALModule):
+# The secret code in order of events
+SECRET_CODE = [
+    'FrontTactilTouched',
+    'LeftBumperPressed',
+    'RightBumperPressed',
+    'LeftBumperPressed',
+    'RightBumperPressed',
+    'HandRightBackTouched',
+    'HandLeftBackTouched',
+    'FrontTactilTouched'
+]
+
+class SecretPasswordGame(ALModule):
     
     def __init__(self, name):
+        global memory
+        self.codeProgression = 0
         self.quit = False
-        self.detectLock = False
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
+        memory = ALProxy("ALMemory")
         self.tts = ALProxy("ALTextToSpeech")
+       
+        for k in EVENTS:
+            memory.subscribeToEvent(k,
+                "SecretPasswordGame",
+                "onBumperPressed")
 
-        # Register landmark detection module
-        self.memory = ALProxy("ALMemory") 
-        self.ld = ALProxy("ALLandMarkDetection")
-        self.ld.subscribe("NaoMarkDetector")
+    def onBumperPressed(self, name, onOff):
+        if onOff == 0: return
+        self.progressCode(name)
 
-        # Subscribe the "onFaceDetected" function to "FaceDetected".
-        self.memory.subscribeToEvent("LandmarkDetected",
-            "NaoMarkDetector",
-            "onMarkDetected")
-
-        # Start detections.
-        self.startDetection()
-
-    def startDetection(self):
-        self.detectLock = False
-    
-    def endDetection(self):
-        self.detectLock = True
-
-    # Sensing
-    def onMarkDetected(self, eventName, eventData):
-
-        if self.detectLock:
-            return
+    def progressCode(self, key):
         
-        # Pause detection to prevent multiple events being fired.
-        self.endDetection()
-
-        # Ensure the data supplied to this event callback is correct.
-        if len(eventData) < 4:
-            return
-
-        # See http://doc.aldebaran.com/1-14/naoqi/vision/allandmarkdetection-api.html#LandmarkDetected
-        # for LandMarkDetected value structure (including position in real world data)/
-        naoMarkNumber = eventData[1][0][1][0]
-        foundOnCamera = eventData[4]
-
-        self.reason(naoMarkNumber, foundOnCamera)
-        
-        # Restart the detection.
-        sleep(1.0)
-        self.startDetection()
-
-    # Reasoning.
-    def reason(self, naoMarkNumber, camera):
-        if not camera == REQUIRED_CAMERA:
-            # Acting.
-            self.tts.say("I see a NAOMark, but not with my top camera.")
-            return
-
-        if naoMarkNumber == NAO_MARK_QUIT:
-            # Acting.
-            self.quit = True
-        elif naoMarkNumber == NAO_MARK_JOKE:
-            # Acting.
-            self.tts.say("Sometimes, I dream of flying away in a spaceship.")
+        if SECRET_CODE[self.codeProgression] == key:
+            self.codeProgression = self.codeProgression + 1
         else:
-            # Acting.
-            self.tts.say("I see a NAOMark. It's number is %s" % str(naoMarkNumber))
+            self.codeProgression = 0
 
-    def onEnd(self):
-        self.tts.say("Goodbye.")
+        self.tts.say(str(self.codeProgression))
 
+        if self.codeProgression >= len(SECRET_CODE):
+            self.onCodeComplete()
+            
+
+    def onCodeComplete(self):
+        self.tts.say('Congratulations, you figured out my secret password.')
+        self.codeProgression = 0
+        self.tts.say('Goodbye!')
+        self.quit = True
 
 def main(ip, port):
-    global NaoMarkDetector
+    global SecretPasswordGame
 
     # Setup the data broker.
     myBroker = ALBroker("myBroker",
@@ -92,18 +69,13 @@ def main(ip, port):
        ip,          # Parent broker IP
        port)        # Parent broker port
 
-    NaoMarkDetector = NaoMarkDetector("NaoMarkDetector")
+    SecretPasswordGame = SecretPasswordGame("SecretPasswordGame")
 
     try:
-        while True:
+        while not SecretPasswordGame.quit:
             # 100 miliseconds is an acceptable amount of input delay time.
-            if NaoMarkDetector.quit == True:
-                NaoMarkDetector.onEnd()
-                break
             sleep(0.1)
     except KeyboardInterrupt:
-        NaoMarkDetector.onEnd()
         myBroker.shutdown()
-        
 
 main(robotIP, robotPort)

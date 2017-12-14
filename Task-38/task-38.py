@@ -3,64 +3,65 @@ from time import sleep
 
 robotIP = "localhost"
 robotPort = 9559
-memory = None
 
-EVENTS = ["HandRightBackTouched", "HandLeftBackTouched", "RightBumperPressed", "LeftBumperPressed", "FrontTactilTouched"]
-
-# The secret code in order of events
-SECRET_CODE = [
-    'FrontTactilTouched',
-    'LeftBumperPressed',
-    'RightBumperPressed',
-    'LeftBumperPressed',
-    'RightBumperPressed',
-    'HandRightBackTouched',
-    'HandLeftBackTouched',
-    'FrontTactilTouched'
-]
-
-class SecretPasswordGame(ALModule):
+class FaceDetector(ALModule):
     
     def __init__(self, name):
-        global memory
-        self.codeProgression = 0
         self.quit = False
+        self.detectLock = False
+        self.faceCounter = 0
 
         # Register our module with NAOqi
         ALModule.__init__(self, name)
-        memory = ALProxy("ALMemory")
         self.tts = ALProxy("ALTextToSpeech")
-       
-        for k in EVENTS:
-            memory.subscribeToEvent(k,
-                "SecretPasswordGame",
-                "onBumperPressed")
 
-    def onBumperPressed(self, name, onOff):
-        if onOff == 0: return
-        self.progressCode(name)
+        # Register facial recognition module
+        self.memory = ALProxy("ALMemory")    
+        self.fr = ALProxy("ALFaceDetection")
+        self.fr.subscribe("FaceDetector")
 
-    def progressCode(self, key):
+        # Subscribe the "onFaceDetected" function to "FaceDetected".
+        self.memory.subscribeToEvent("FaceDetected",
+            "FaceDetector",
+            "onFaceDetected")
+
+        self.startRecognition()
+
+    def onFaceDetected(self, value):
+        # self.detectLock will be True if a face has already been seen.
+        # to prevent the Nao doubling up on faces, only continue if self.detectLock is False
+        if self.detectLock:
+            return
         
-        if SECRET_CODE[self.codeProgression] == key:
-            self.codeProgression = self.codeProgression + 1
-        else:
-            self.codeProgression = 0
+        # Pause recognition.
+        self.stopRecognition()
 
-        self.tts.say(str(self.codeProgression))
+        self.faceCounter = self.faceCounter + 1
+        self.tts.say("Hello, I see you!")
+        sleep(1)
 
-        if self.codeProgression >= len(SECRET_CODE):
-            self.onCodeComplete()
-            
+        if self.faceCounter >= 3:
+            self.quit = True
+            return
 
-    def onCodeComplete(self):
-        self.tts.say('Congratulations, you figured out my secret password.')
-        self.codeProgression = 0
-        self.tts.say('Goodbye!')
-        self.quit = True
+        # Restart the recognition.
+        self.startRecognition()
+
+    def startRecognition(self):
+        self.detectLock = False
+        self.fr.setRecognitionEnabled(True)
+
+    def stopRecognition(self):
+        self.detectLock = True
+        self.fr.setRecognitionEnabled(False)
+
+    def onEnd(self):
+        self.stopRecognition()
+        self.tts.say("Goodbye.")
+
 
 def main(ip, port):
-    global SecretPasswordGame
+    global FaceDetector
 
     # Setup the data broker.
     myBroker = ALBroker("myBroker",
@@ -69,13 +70,18 @@ def main(ip, port):
        ip,          # Parent broker IP
        port)        # Parent broker port
 
-    SecretPasswordGame = SecretPasswordGame("SecretPasswordGame")
+    FaceDetector = FaceDetector("FaceDetector")
 
     try:
-        while not SecretPasswordGame.quit:
+        while True:
             # 100 miliseconds is an acceptable amount of input delay time.
+            if FaceDetector.quit == True:
+                FaceDetector.onEnd()
+                break
             sleep(0.1)
     except KeyboardInterrupt:
+        FaceDetector.onEnd()
         myBroker.shutdown()
+        
 
 main(robotIP, robotPort)
