@@ -5,9 +5,6 @@ robotIP = "localhost"
 robotPort = 9559
 memory = None
 
-EVENTS = ["HandRightBackTouched", "HandLeftBackTouched", "RightBumperPressed", "LeftBumperPressed", "RearTactilTouched"]
-
-
 class BallTracker(ALModule):
 
     def __init__(self, name):
