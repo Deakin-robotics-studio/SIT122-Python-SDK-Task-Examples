@@ -3,7 +3,7 @@ from time import sleep
 
 robotIP = "localhost"
 robotPort = 9559
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.3
 
 class SpeechRecognition(ALModule):
 
@@ -34,18 +34,18 @@ class SpeechRecognition(ALModule):
 		self.asr.pause(True)
 		self.quit = True
 
-	def main(ip, port):
-		global SpeechRecognition
+def main(ip, port):
+        global SpeechRecognition
 
-		# Setup the data broker.
-		myBroker = ALBroker("myBroker", "0.0.0.0", 0, ip, port)
-		SpeechRecognition = SpeechRecognition("SpeechRecognition")
-		try:
-			while True:
-				sleep(0.1)
-		except KeyboardInterrupt:
-			SpeechRecognition.onEnd()
-			myBroker.shutdown()
+        # Setup the data broker.
+        myBroker = ALBroker("myBroker", "0.0.0.0", 0, ip, port)
+        SpeechRecognition = SpeechRecognition("SpeechRecognition")
+        try:
+                while True:
+                        sleep(0.1)
+        except KeyboardInterrupt:
+                SpeechRecognition.onEnd()
+                myBroker.shutdown()
 
-if __name__ == "main":
+if __name__ == "__main__":
 	main(robotIP, robotPort)
