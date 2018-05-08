@@ -24,18 +24,11 @@ class SpeechRecognition(ALModule):
 		# Subscribe self.onWordRecognized to WordRecognized.
 		self.memory.subscribeToEvent("WordRecognized", "SpeechRecognition", "onWordRecognized")
 
-		self.speakLock = False
-
 	def onWordRecognized(self, ref, spot):
-		if self.speakLock == True:
-			return
-
-		self.speakLock = True
 		command = spot[0]
 		confidence = spot[1]
 		print "I heard %s with a confidence level of %s" % (command, confidence)
 		self.tts.say(command)
-		self.speakLock = False
 
 	def onEnd(self):
 		self.asr.pause(True)
